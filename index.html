@@ -69,16 +69,34 @@
   (async () => {
     const TOTAL_CARDS = 630;
     const grid = document.getElementById('grid');
-    const checklist = await fetch('checklist.json').then(r => r.json());
+    let checklist;
+    try {
+      const res = await fetch('checklist.json');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      checklist = await res.json();
+    } catch (err) {
+      console.error('Failed to load checklist.json:', err);
+      return;
+    }
 
     for (const c of checklist) {
       const tile = document.createElement('div');
       tile.className = 'tile';
       tile.dataset.number = c.number;
-      tile.innerHTML =
-        `<span class="num">#${c.number}</span>` +
-        `<span class="name">${c.player}</span>` +
-        `<span class="meta">${c.team || c.section}</span>`;
+
+      const num = document.createElement('span');
+      num.className = 'num';
+      num.textContent = '#' + c.number;
+
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = c.player;
+
+      const meta = document.createElement('span');
+      meta.className = 'meta';
+      meta.textContent = c.team || c.section;
+
+      tile.append(num, name, meta);
       grid.appendChild(tile);
     }
   })();
