@@ -161,6 +161,42 @@ async function main() {
     eq(r.errors, []);
   });
 
+  t('preserves duplicate numbers (they add +1 each in caller)', () => {
+    const r = app.parseQuickAdd('10, 10, 15');
+    eq(r.valid, [10, 10, 15]);
+    eq(r.errors, []);
+  });
+
+  t('preserves numbers that also appear inside ranges', () => {
+    const r = app.parseQuickAdd('5-7, 6');
+    eq(r.valid, [5, 6, 7, 6]);
+    eq(r.errors, []);
+  });
+
+  t('single-element range n-n returns [n]', () => {
+    const r = app.parseQuickAdd('10-10');
+    eq(r.valid, [10]);
+    eq(r.errors, []);
+  });
+
+  t('rejects malformed range shapes', () => {
+    const r = app.parseQuickAdd('-5, 5-, 5-3-2, --');
+    eq(r.valid, []);
+    eq(r.errors, ['-5', '5-', '5-3-2', '--']);
+  });
+
+  t('accepts tabs and newlines as separators', () => {
+    const r = app.parseQuickAdd('10\t15\n20');
+    eq(r.valid, [10, 15, 20]);
+    eq(r.errors, []);
+  });
+
+  t('leading zeros parse as decimal', () => {
+    const r = app.parseQuickAdd('007, 015');
+    eq(r.valid, [7, 15]);
+    eq(r.errors, []);
+  });
+
   results.insertAdjacentHTML('beforeend',
     `<h2>${failed === 0 ? '✅' : '❌'} ${passed} passed, ${failed} failed</h2>`);
 }
