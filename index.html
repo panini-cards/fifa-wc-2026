@@ -705,13 +705,21 @@
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const { valid, errors } = app.parseQuickAdd(input.value);
-      errEl.textContent = errors.length ? 'Rejected: ' + errors.join(', ') : '';
+      const known = new Set(checklist.map(c => c.number));
+      const shown = valid.filter(n => known.has(n));
+      const orphan = valid.filter(n => !known.has(n));
+      const parts = [];
+      if (errors.length) parts.push('Rejected: ' + errors.join(', '));
+      if (orphan.length) parts.push('Not in current checklist (still saved): ' + orphan.join(', '));
+      errEl.textContent = parts.join(' · ');
       if (!valid.length) return;
       for (const n of valid) collection[n] = (collection[n] || 0) + 1;
       app.saveCollection(collection);
       input.value = '';
       renderAll();
-      showToast('+' + valid.length + ' card' + (valid.length > 1 ? 's' : '') + ' added');
+      const shownLabel = shown.length + ' card' + (shown.length === 1 ? '' : 's');
+      const orphanLabel = orphan.length ? ' (' + orphan.length + ' queued)' : '';
+      showToast('+' + shownLabel + ' added' + orphanLabel);
     });
 
     // ==== Export / Import ====

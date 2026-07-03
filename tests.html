@@ -53,11 +53,9 @@ async function main() {
 
   results.insertAdjacentHTML('beforeend', '<h2>checklist.json shape</h2>');
 
-  // Pilot mode: total may be less than 630 during backfill.
-  // The "== 630" assertion is flipped on when backfill is complete (see post-pilot task).
-  t('has at least 1 entry and at most 630', () => {
-    ok(checklist.length >= 1 && checklist.length <= 630,
-       `unexpected length: ${checklist.length}`);
+  // Pilot mode complete: enforcing strict length === 630 (backfilled 2026-07-03).
+  t('has exactly 630 entries', () => {
+    ok(checklist.length === 630, `unexpected length: ${checklist.length}`);
   });
 
   t('card numbers are unique and within 1..630', () => {
@@ -104,9 +102,9 @@ async function main() {
     }
   });
 
-  t('golden section (present pilot subset) has valid numbers 1..9', () => {
-    const golden = checklist.filter(c => c.section === 'golden').map(c => c.number);
-    for (const n of golden) ok(n >= 1 && n <= 9, `golden card #${n} out of 1..9`);
+  t('golden section covers cards 1..9 exactly', () => {
+    const golden = checklist.filter(c => c.section === 'golden').map(c => c.number).sort((a, b) => a - b);
+    eq(golden, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
   const app = await loadAppFunctions();
@@ -241,7 +239,7 @@ async function main() {
   t('per-section totals correct for golden', () => {
     const s = app.computeStats(checklist, { "1": 1, "3": 2, "9": 1 });
     eq(s.perSection.golden.owned, 3);
-    ok(s.perSection.golden.total >= 3, 'golden total should be ≥ 3');
+    eq(s.perSection.golden.total, 9);
   });
 
   t('unknown card numbers in collection are ignored', () => {
