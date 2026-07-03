@@ -858,6 +858,11 @@
       document.getElementById('exportMenu').open = false;
     });
 
+    document.addEventListener('click', (e) => {
+      const menu = document.getElementById('exportMenu');
+      if (menu.open && !menu.contains(e.target)) menu.open = false;
+    });
+
     document.getElementById('textModalCopy').addEventListener('click', async (e) => {
       const btn = e.currentTarget;
       try {
