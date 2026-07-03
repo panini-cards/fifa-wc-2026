@@ -498,11 +498,53 @@
       renderAll();
     }
 
+    function setExactCount(n) {
+      const cur = collection[n] || 0;
+      const input = window.prompt('How many copies of card #' + n + ' do you own?', String(cur));
+      if (input === null) return;   // user cancelled
+      const trimmed = input.trim();
+      if (trimmed === '') { if (cur !== 0) { delete collection[n]; app.saveCollection(collection); renderAll(); } return; }
+      const c = parseInt(trimmed, 10);
+      if (!Number.isFinite(c) || c < 0 || String(c) !== trimmed) return;   // invalid input, ignore
+      if (c === 0) delete collection[n]; else collection[n] = c;
+      app.saveCollection(collection);
+      renderAll();
+    }
+
+    let longPressed = false;
+    let pressTimer = null;
+
     grid.addEventListener('click', (e) => {
       const tile = e.target.closest('.tile');
       if (!tile) return;
+      if (longPressed) { longPressed = false; return; }
       toggle(parseInt(tile.dataset.number, 10));
     });
+
+    grid.addEventListener('contextmenu', (e) => {
+      const tile = e.target.closest('.tile');
+      if (!tile) return;
+      e.preventDefault();
+      setExactCount(parseInt(tile.dataset.number, 10));
+    });
+
+    grid.addEventListener('touchstart', (e) => {
+      const tile = e.target.closest('.tile');
+      if (!tile) return;
+      const n = parseInt(tile.dataset.number, 10);
+      if (pressTimer) clearTimeout(pressTimer);
+      pressTimer = setTimeout(() => {
+        longPressed = true;
+        setExactCount(n);
+      }, 500);
+    }, { passive: true });
+
+    function cancelPress() {
+      if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+    }
+    grid.addEventListener('touchend', cancelPress);
+    grid.addEventListener('touchmove', cancelPress);
+    grid.addEventListener('touchcancel', cancelPress);
 
     document.getElementById('summary').addEventListener('click', (e) => {
       if (e.target.id === 'clearFilter') {
