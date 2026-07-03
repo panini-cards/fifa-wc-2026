@@ -71,15 +71,13 @@
     }
     .tile.owned { opacity: 1; background: var(--owned-bg); border-color: var(--owned-fg); }
     .tile.reserved {
+      opacity: 1;
       background: #fff1de;
       border-color: #e6811a;
     }
-    .tile.reserved.owned { background: #fff1de; border-color: #e6811a; }
-    [data-theme="dark"] .tile.reserved,
-    [data-theme="dark"] .tile.reserved.owned { background: #3a2a10; border-color: #e6811a; }
+    [data-theme="dark"] .tile.reserved { background: #3a2a10; border-color: #e6811a; }
     @media (prefers-color-scheme: dark) {
-      [data-theme="auto"] .tile.reserved,
-      [data-theme="auto"] .tile.reserved.owned { background: #3a2a10; border-color: #e6811a; }
+      [data-theme="auto"] .tile.reserved { background: #3a2a10; border-color: #e6811a; }
     }
     .tile .rsv { color: #e6811a; font-size: .7rem; margin-left: .2rem; font-weight: 600; }
     .tile .num { font-weight: 700; }
@@ -418,27 +416,29 @@
       return { groups, groupOrder };
     },
 
-    formatMissingList(checklist, collection) {
+    formatMissingList(checklist, collection, reserved) {
+      reserved = reserved || {};
       const missing = c => !collection[c.number] || collection[c.number] < 1;
       const { groups, groupOrder } = this._groupByLabel(checklist, missing);
       const totalMissing = checklist.filter(missing).length;
       const lines = [`Missing (${totalMissing}):`];
       for (const label of groupOrder) {
-        lines.push(`${label}: ${groups.get(label).join(', ')}`);
+        const parts = groups.get(label).map(n =>
+          reserved[n] ? `${n}⇄` : String(n)
+        );
+        lines.push(`${label}: ${parts.join(', ')}`);
       }
       return lines.join('\n');
     },
 
-    formatDoublesList(checklist, collection, reserved) {
-      reserved = reserved || {};
-      const spareOf = n => (collection[n] || 0) - 1 - (reserved[n] || 0);
-      const dbl = c => spareOf(c.number) >= 1;
+    formatDoublesList(checklist, collection) {
+      const dbl = c => (collection[c.number] || 0) >= 2;
       const { groups, groupOrder } = this._groupByLabel(checklist, dbl);
       const totalDoubles = checklist.filter(dbl).length;
       const lines = [`Doubles — spare copies to trade (${totalDoubles}):`];
       for (const label of groupOrder) {
         const parts = groups.get(label).map(n => {
-          const spare = spareOf(n);
+          const spare = collection[n] - 1;   // keep one for the album
           return spare > 1 ? `${n} (×${spare})` : `${n}`;
         });
         lines.push(`${label}: ${parts.join(', ')}`);
@@ -628,11 +628,9 @@
       if (filter.kind === 'section' && c.section !== filter.value) return false;
       // Chip
       const count = collection[c.number] || 0;
-      const rsv = reserved[c.number] || 0;
-      const spare = count - 1 - rsv;   // effective tradeable copies
       if (chip === 'owned' && count < 1) return false;
       if (chip === 'missing' && count >= 1) return false;
-      if (chip === 'doubles' && spare < 1) return false;
+      if (chip === 'doubles' && count < 2) return false;
       // Search
       if (!app.matchesSearch(c, searchQuery)) return false;
       return true;
@@ -641,7 +639,7 @@
     function renderTile(c) {
       const count = collection[c.number] || 0;
       const owned = count >= 1;
-      const isReserved = owned && (reserved[c.number] || 0) > 0;
+      const isReserved = !owned && (reserved[c.number] || 0) > 0;
 
       const tile = document.createElement('div');
       tile.className = 'tile' + (owned ? ' owned' : '') + (isReserved ? ' reserved' : '');
@@ -767,8 +765,8 @@
 
     function toggle(n) {
       const cur = collection[n] || 0;
-      if (cur === 0) collection[n] = 1;
-      else { delete collection[n]; delete reserved[n]; }
+      if (cur === 0) { collection[n] = 1; delete reserved[n]; }
+      else delete collection[n];
       app.saveCollection(collection);
       app.saveReserved(reserved);
       renderAll();
@@ -788,7 +786,9 @@
       cardEditTitle.textContent = 'Card #' + n;
       cardEditCount.value = String(cur);
       cardEditReserved.checked = rsv;
-      cardEditReservedRow.style.display = cur >= 1 ? '' : 'none';
+      // "Incoming" only makes sense for missing cards (count 0). Once you own it,
+      // it's not on the way anymore — hide the checkbox.
+      cardEditReservedRow.style.display = cur === 0 ? '' : 'none';
       if (typeof cardEditModal.showModal === 'function') cardEditModal.showModal();
       else cardEditModal.setAttribute('open', '');
       cardEditCount.focus();
@@ -802,7 +802,7 @@
 
     cardEditCount.addEventListener('input', () => {
       const v = parseInt(cardEditCount.value, 10);
-      cardEditReservedRow.style.display = (Number.isFinite(v) && v >= 1) ? '' : 'none';
+      cardEditReservedRow.style.display = (Number.isFinite(v) && v === 0) ? '' : 'none';
     });
 
     document.getElementById('cardEditSave').addEventListener('click', () => {
@@ -811,11 +811,13 @@
       const raw = cardEditCount.value.trim();
       const c = parseInt(raw, 10);
       if (!Number.isFinite(c) || c < 0 || String(c) !== raw) { closeCardEdit(); return; }
-      if (c === 0) { delete collection[n]; delete reserved[n]; }
-      else {
-        collection[n] = c;
+      if (c === 0) {
+        delete collection[n];
         if (cardEditReserved.checked) reserved[n] = 1;
         else delete reserved[n];
+      } else {
+        collection[n] = c;
+        delete reserved[n];   // card arrived — no longer "incoming"
       }
       app.saveCollection(collection);
       app.saveReserved(reserved);
@@ -977,9 +979,9 @@
         URL.revokeObjectURL(url);
         showToast('Downloaded ' + a.download);
       } else if (kind === 'missing') {
-        openTextModal('Missing cards', app.formatMissingList(checklist, collection));
+        openTextModal('Missing cards', app.formatMissingList(checklist, collection, reserved));
       } else if (kind === 'doubles') {
-        openTextModal('Doubles', app.formatDoublesList(checklist, collection, reserved));
+        openTextModal('Doubles', app.formatDoublesList(checklist, collection));
       }
 
       document.getElementById('exportMenu').open = false;
@@ -1069,7 +1071,7 @@
       </label>
       <label id="cardEditReservedRow" style="display:flex;align-items:center;gap:.4rem;">
         <input id="cardEditReserved" type="checkbox">
-        <span>Reserved for trade (one copy set aside)</span>
+        <span>Incoming — trade agreed, card on the way</span>
       </label>
     </div>
     <menu>
