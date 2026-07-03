@@ -77,10 +77,22 @@
       position: absolute; top: .4rem; right: .4rem;
       width: .6rem; height: .6rem; border-radius: 2px;
     }
-    .tile .pos.pos-gk  { background: var(--pos-gk); }
-    .tile .pos.pos-def { background: var(--pos-def); }
-    .tile .pos.pos-mid { background: var(--pos-mid); }
-    .tile .pos.pos-fwd { background: var(--pos-fwd); }
+    .pos-gk,  .pos-swatch.pos-gk  { background: var(--pos-gk); }
+    .pos-def, .pos-swatch.pos-def { background: var(--pos-def); }
+    .pos-mid, .pos-swatch.pos-mid { background: var(--pos-mid); }
+    .pos-fwd, .pos-swatch.pos-fwd { background: var(--pos-fwd); }
+    .legend {
+      display: flex; flex-wrap: wrap;
+      gap: .8rem;
+      margin-top: .5rem;
+      font-size: .75rem;
+      color: var(--muted);
+    }
+    .legend-item { display: inline-flex; align-items: center; gap: .3rem; }
+    .pos-swatch {
+      display: inline-block;
+      width: .6rem; height: .6rem; border-radius: 2px;
+    }
     .tile .dup { color: var(--muted); font-size: .7rem; margin-left: .2rem; font-weight: normal; }
     .banner {
       background: #fff3cd; color: #664d03;
@@ -259,6 +271,12 @@
     <h1>Panini FIFA World Cup 2026 — Adrenalyn XL</h1>
     <div class="overall"><span id="ownedCount">0</span> / <span id="ownedTotal">0</span> <span class="pct" id="ownedPct">0%</span></div>
     <div class="bar"><div id="overallBar" style="width:0%"></div></div>
+    <div class="legend" aria-label="Position colour legend">
+      <span class="legend-item"><span class="pos-swatch pos-gk"></span>GK</span>
+      <span class="legend-item"><span class="pos-swatch pos-def"></span>DEF</span>
+      <span class="legend-item"><span class="pos-swatch pos-mid"></span>MID</span>
+      <span class="legend-item"><span class="pos-swatch pos-fwd"></span>FWD</span>
+    </div>
   </header>
   <div id="toolbar">
     <form id="quickAddForm">
