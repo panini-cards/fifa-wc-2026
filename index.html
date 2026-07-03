@@ -421,9 +421,12 @@
       const dbl = c => (collection[c.number] || 0) >= 2;
       const { groups, groupOrder } = this._groupByLabel(checklist, dbl);
       const totalDoubles = checklist.filter(dbl).length;
-      const lines = [`Doubles (${totalDoubles}):`];
+      const lines = [`Doubles — spare copies to trade (${totalDoubles}):`];
       for (const label of groupOrder) {
-        const parts = groups.get(label).map(n => `${n} (×${collection[n]})`);
+        const parts = groups.get(label).map(n => {
+          const spare = collection[n] - 1;   // keep one for the album
+          return spare > 1 ? `${n} (×${spare})` : `${n}`;
+        });
         lines.push(`${label}: ${parts.join(', ')}`);
       }
       return lines.join('\n');
