@@ -66,6 +66,38 @@
   </main>
 
   <script>
+  // ==== Pure logic (testable) ====
+  window.__paniniApp = {
+    TOTAL_CARDS: 630,
+
+    parseQuickAdd(input) {
+      const valid = [];
+      const errors = [];
+      if (!input || !input.trim()) return { valid, errors };
+      const tokens = input.split(/[\s,]+/).filter(Boolean);
+      for (const tok of tokens) {
+        const m = tok.match(/^(\d+)-(\d+)$/);
+        if (m) {
+          const a = parseInt(m[1], 10), b = parseInt(m[2], 10);
+          if (a > b || a < 1 || b > 630) { errors.push(tok); continue; }
+          for (let n = a; n <= b; n++) valid.push(n);
+          continue;
+        }
+        if (/^\d+$/.test(tok)) {
+          const n = parseInt(tok, 10);
+          if (n < 1 || n > 630) { errors.push(tok); continue; }
+          valid.push(n);
+          continue;
+        }
+        errors.push(tok);
+      }
+      return { valid, errors };
+    },
+  };
+  </script>
+
+  <script>
+  // ==== Boot ====
   (async () => {
     const TOTAL_CARDS = 630;
     const grid = document.getElementById('grid');

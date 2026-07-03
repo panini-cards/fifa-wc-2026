@@ -109,6 +109,58 @@ async function main() {
     for (const n of golden) ok(n >= 1 && n <= 9, `golden card #${n} out of 1..9`);
   });
 
+  const app = await loadAppFunctions();
+
+  results.insertAdjacentHTML('beforeend', '<h2>parseQuickAdd</h2>');
+
+  t('parses single numbers', () => {
+    const r = app.parseQuickAdd('10, 15, 88');
+    eq(r.valid, [10, 15, 88]);
+    eq(r.errors, []);
+  });
+
+  t('parses ranges', () => {
+    const r = app.parseQuickAdd('22-25');
+    eq(r.valid, [22, 23, 24, 25]);
+    eq(r.errors, []);
+  });
+
+  t('mixes numbers and ranges', () => {
+    const r = app.parseQuickAdd('1, 3-5, 9');
+    eq(r.valid, [1, 3, 4, 5, 9]);
+    eq(r.errors, []);
+  });
+
+  t('accepts whitespace or comma as separators', () => {
+    const r = app.parseQuickAdd('  10   15,20-22 ');
+    eq(r.valid, [10, 15, 20, 21, 22]);
+    eq(r.errors, []);
+  });
+
+  t('rejects non-numeric tokens', () => {
+    const r = app.parseQuickAdd('10, xyz, 15');
+    eq(r.valid, [10, 15]);
+    eq(r.errors, ['xyz']);
+  });
+
+  t('rejects out-of-range numbers', () => {
+    const r = app.parseQuickAdd('0, 631, 700, 15');
+    eq(r.valid, [15]);
+    eq(r.errors, ['0', '631', '700']);
+  });
+
+  t('rejects malformed ranges', () => {
+    const r = app.parseQuickAdd('5-3, 22-25');
+    eq(r.valid, [22, 23, 24, 25]);
+    eq(r.errors, ['5-3']);
+  });
+
+  t('empty string returns empty valid + empty errors', () => {
+    const r = app.parseQuickAdd('  ');
+    eq(r.valid, []);
+    eq(r.errors, []);
+  });
+
   results.insertAdjacentHTML('beforeend',
     `<h2>${failed === 0 ? '✅' : '❌'} ${passed} passed, ${failed} failed</h2>`);
 }
