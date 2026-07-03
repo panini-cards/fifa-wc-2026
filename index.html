@@ -52,6 +52,7 @@
     .tile .num { font-weight: 700; }
     .tile .name { display: block; margin-top: .25rem; }
     .tile .meta { color: var(--muted); font-size: .7rem; }
+    .tile .dup { color: var(--muted); font-size: .7rem; margin-left: .2rem; font-weight: normal; }
   </style>
 </head>
 <body>
@@ -209,14 +210,51 @@
       }
       return out;
     },
+
+    STORAGE_KEY: 'panini_wc2026_collection',
+
+    storageAvailable() {
+      try {
+        const t = '__t__';
+        localStorage.setItem(t, t);
+        localStorage.removeItem(t);
+        return true;
+      } catch (_) { return false; }
+    },
+
+    loadCollection() {
+      try {
+        const raw = localStorage.getItem(this.STORAGE_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return {};
+        const clean = {};
+        for (const [k, v] of Object.entries(parsed)) {
+          const n = parseInt(k, 10);
+          const c = parseInt(v, 10);
+          if (n >= 1 && n <= 630 && c >= 1) clean[n] = c;
+          else if (Number.isFinite(n) && (n < 1 || n > 630)) console.warn('ignoring out-of-range card', k);
+        }
+        return clean;
+      } catch (_) { return {}; }
+    },
+
+    saveCollection(collection) {
+      try { localStorage.setItem(this.STORAGE_KEY, JSON.stringify(collection)); }
+      catch (_) { /* storage disabled — silently swallow, Task 13 adds a visible banner */ }
+    },
   };
 </script>
 
   <script>
   // ==== Boot ====
   (async () => {
-    const TOTAL_CARDS = 630;
+    const app = window.__paniniApp;
     const grid = document.getElementById('grid');
+    const ownedCountEl = document.getElementById('ownedCount');
+    const ownedPctEl = document.getElementById('ownedPct');
+    const overallBarEl = document.getElementById('overallBar');
+
     let checklist;
     try {
       const res = await fetch('checklist.json');
@@ -227,14 +265,25 @@
       return;
     }
 
-    for (const c of checklist) {
+    let collection = app.loadCollection();
+
+    function renderTile(c) {
+      const count = collection[c.number] || 0;
+      const owned = count >= 1;
+
       const tile = document.createElement('div');
-      tile.className = 'tile';
+      tile.className = 'tile' + (owned ? ' owned' : '');
       tile.dataset.number = c.number;
 
       const num = document.createElement('span');
       num.className = 'num';
       num.textContent = '#' + c.number;
+      if (count > 1) {
+        const dup = document.createElement('span');
+        dup.className = 'dup';
+        dup.textContent = '×' + count;
+        num.append(' ', dup);
+      }
 
       const name = document.createElement('span');
       name.className = 'name';
@@ -245,8 +294,32 @@
       meta.textContent = c.team || c.section;
 
       tile.append(num, name, meta);
-      grid.appendChild(tile);
+      return tile;
     }
+
+    function renderAll() {
+      grid.textContent = '';
+      for (const c of checklist) grid.appendChild(renderTile(c));
+      const stats = app.computeStats(checklist, collection);
+      ownedCountEl.textContent = stats.owned;
+      ownedPctEl.textContent = stats.pct + '%';
+      overallBarEl.style.width = stats.pct + '%';
+    }
+
+    function toggle(n) {
+      const cur = collection[n] || 0;
+      if (cur === 0) collection[n] = 1; else delete collection[n];
+      app.saveCollection(collection);
+      renderAll();
+    }
+
+    grid.addEventListener('click', (e) => {
+      const tile = e.target.closest('.tile');
+      if (!tile) return;
+      toggle(parseInt(tile.dataset.number, 10));
+    });
+
+    renderAll();
   })();
   </script>
 </body>
