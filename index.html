@@ -82,6 +82,35 @@
       pointer-events: none; z-index: 20;
     }
     .toast.show { opacity: 1; }
+    #summary h3 {
+      margin: .8rem 0 .4rem;
+      font-size: .8rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--muted);
+    }
+    #summary h3:first-child { margin-top: 0; }
+    .summary-row {
+      display: grid; grid-template-columns: 40px 1fr 60px;
+      gap: .5rem; align-items: center;
+      padding: .25rem .3rem;
+      cursor: pointer;
+      font-size: .8rem;
+      border-radius: 4px;
+    }
+    .summary-row:hover { background: rgba(127,127,127,.1); }
+    .summary-row.active { background: var(--owned-bg); }
+    .summary-row .lbl { font-weight: 600; }
+    .summary-row .num { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+    .summary-row .bar { height: 4px; margin: 0; }
+    #clearFilter {
+      margin-top: 1rem;
+      padding: .3rem .6rem;
+      background: transparent; color: var(--fg);
+      border: 1px solid var(--border); border-radius: 4px;
+      cursor: pointer; font: inherit;
+    }
+    #clearFilter:hover { background: rgba(127,127,127,.1); }
   </style>
 </head>
 <body>
@@ -304,6 +333,14 @@
 
     let collection = app.loadCollection();
 
+    let filter = { kind: 'all', value: null };  // kind: 'all' | 'team' | 'section'
+
+    function cardVisible(c) {
+      if (filter.kind === 'team') return c.team === filter.value;
+      if (filter.kind === 'section') return c.section === filter.value;
+      return true;
+    }
+
     function renderTile(c) {
       const count = collection[c.number] || 0;
       const owned = count >= 1;
@@ -336,12 +373,81 @@
 
     function renderAll() {
       grid.textContent = '';
-      for (const c of checklist) grid.appendChild(renderTile(c));
+      for (const c of checklist) {
+        if (!cardVisible(c)) continue;
+        grid.appendChild(renderTile(c));
+      }
       const stats = app.computeStats(checklist, collection);
       ownedCountEl.textContent = stats.owned;
       ownedTotalEl.textContent = stats.total;
       ownedPctEl.textContent = stats.pct + '%';
       overallBarEl.style.width = stats.pct + '%';
+      renderSummary(stats);
+    }
+
+    function renderSummary(stats) {
+      const summary = document.getElementById('summary');
+      summary.textContent = '';
+
+      function row(kind, value, label, owned, total) {
+        const pct = total > 0 ? Math.round(100 * owned / total) : 0;
+        const el = document.createElement('div');
+        el.className = 'summary-row';
+        if (filter.kind === kind && filter.value === value) el.classList.add('active');
+        el.dataset.kind = kind;
+        el.dataset.value = value;
+
+        const lbl = document.createElement('span');
+        lbl.className = 'lbl';
+        lbl.textContent = label;
+
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        const barFill = document.createElement('div');
+        barFill.style.width = pct + '%';
+        bar.appendChild(barFill);
+
+        const num = document.createElement('span');
+        num.className = 'num';
+        num.textContent = owned + '/' + total;
+
+        el.append(lbl, bar, num);
+        return el;
+      }
+
+      // Teams (sorted alphabetically by name)
+      const teams = Object.entries(stats.perTeam)
+        .sort(([, a], [, b]) => a.name.localeCompare(b.name));
+      if (teams.length > 0) {
+        const h = document.createElement('h3');
+        h.textContent = 'Teams';
+        summary.appendChild(h);
+        for (const [code, info] of teams) {
+          summary.appendChild(row('team', code, code, info.owned, info.total));
+        }
+      }
+
+      // Special sets (in SECTION_ORDER, excluding the 'team' pseudo-section)
+      const sets = app.SECTION_ORDER
+        .filter(s => s !== 'team' && stats.perSection[s]);
+      if (sets.length > 0) {
+        const h = document.createElement('h3');
+        h.textContent = 'Special sets';
+        summary.appendChild(h);
+        for (const s of sets) {
+          const info = stats.perSection[s];
+          summary.appendChild(row('section', s, app.SECTION_LABELS[s], info.owned, info.total));
+        }
+      }
+
+      // Show-all button (only when a filter is active)
+      if (filter.kind !== 'all') {
+        const btn = document.createElement('button');
+        btn.id = 'clearFilter';
+        btn.type = 'button';
+        btn.textContent = 'Show all';
+        summary.appendChild(btn);
+      }
     }
 
     function toggle(n) {
@@ -355,6 +461,19 @@
       const tile = e.target.closest('.tile');
       if (!tile) return;
       toggle(parseInt(tile.dataset.number, 10));
+    });
+
+    document.getElementById('summary').addEventListener('click', (e) => {
+      if (e.target.id === 'clearFilter') {
+        filter = { kind: 'all', value: null };
+        renderAll();
+        return;
+      }
+      const row = e.target.closest('.summary-row');
+      if (!row) return;
+      filter = { kind: row.dataset.kind, value: row.dataset.value };
+      renderAll();
+      document.getElementById('grid').scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 
     const form = document.getElementById('quickAddForm');
